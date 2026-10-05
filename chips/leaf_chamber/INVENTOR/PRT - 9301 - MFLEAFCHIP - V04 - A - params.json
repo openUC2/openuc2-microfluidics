@@ -1,0 +1,731 @@
+{
+ "parameters": [
+  {
+   "name": "chip_l",
+   "value": 75.0,
+   "unit": "mm",
+   "expr": "",
+   "comment": "slide length X (ISO 8037-1: 75-76 x 25-26 mm)"
+  },
+  {
+   "name": "chip_w",
+   "value": 25.0,
+   "unit": "mm",
+   "expr": "",
+   "comment": "slide width Y"
+  },
+  {
+   "name": "base_t",
+   "value": 3.0,
+   "unit": "mm",
+   "expr": "",
+   "comment": "slab top above the glue plane z = 0"
+  },
+  {
+   "name": "corner_r",
+   "value": 1.0,
+   "unit": "mm",
+   "expr": "",
+   "comment": "vertical corner radius"
+  },
+  {
+   "name": "cs_l",
+   "value": 60.0,
+   "unit": "mm",
+   "expr": "",
+   "comment": "bottom coverslip length X - must cover every channel and via"
+  },
+  {
+   "name": "cs_w",
+   "value": 24.0,
+   "unit": "mm",
+   "expr": "",
+   "comment": "bottom coverslip width Y"
+  },
+  {
+   "name": "cs_t",
+   "value": 0.17,
+   "unit": "mm",
+   "expr": "",
+   "comment": "bottom coverslip thickness (#1.5)"
+  },
+  {
+   "name": "cs_recess",
+   "value": 0.25,
+   "unit": "mm",
+   "expr": "",
+   "comment": "depth of the glue band under the chip (coverslip + adhesive flush)"
+  },
+  {
+   "name": "cs_gap",
+   "value": 0.25,
+   "unit": "mm",
+   "expr": "",
+   "comment": "clearance at each end of the glue band"
+  },
+  {
+   "name": "ch_w",
+   "value": 1.0,
+   "unit": "mm",
+   "expr": "",
+   "comment": "channel width"
+  },
+  {
+   "name": "ch_h",
+   "value": 0.5,
+   "unit": "mm",
+   "expr": "",
+   "comment": "channel depth"
+  },
+  {
+   "name": "ch_floor",
+   "value": 0.0,
+   "unit": "mm",
+   "expr": "",
+   "comment": "channel floor above z = 0: 0 = open groove sealed by the coverslip"
+  },
+  {
+   "name": "via_d",
+   "value": 1.0,
+   "unit": "mm",
+   "expr": "",
+   "comment": "vertical via from the channel into a port"
+  },
+  {
+   "name": "well_d",
+   "value": 14.3,
+   "unit": "mm",
+   "expr": "",
+   "comment": "chamber well diameter (leaf space; the O-ring seals on this bore)"
+  },
+  {
+   "name": "chamber_h",
+   "value": 0.8,
+   "unit": "mm",
+   "expr": "",
+   "comment": "chamber height: coverslip to window glass (leaf + liquid)"
+  },
+  {
+   "name": "stub_len",
+   "value": 3.2,
+   "unit": "mm",
+   "expr": "",
+   "comment": "plug stub below the stop face (window recess, wall, O-ring groove, wall)"
+  },
+  {
+   "name": "ledge_z",
+   "value": 4.0,
+   "unit": "mm",
+   "expr": "chamber_h + stub_len",
+   "comment": "top of the well = stop face of the plug"
+  },
+  {
+   "name": "well_chamfer",
+   "value": 0.6,
+   "unit": "mm",
+   "expr": "",
+   "comment": "O-ring lead-in chamfer at the top of the well"
+  },
+  {
+   "name": "boss_d",
+   "value": 24.0,
+   "unit": "mm",
+   "expr": "",
+   "comment": "threaded boss outer diameter"
+  },
+  {
+   "name": "th_len",
+   "value": 5.0,
+   "unit": "mm",
+   "expr": "",
+   "comment": "threaded length of the boss above the stop face"
+  },
+  {
+   "name": "boss_top",
+   "value": 9.0,
+   "unit": "mm",
+   "expr": "ledge_z + th_len",
+   "comment": "top of the threaded boss"
+  },
+  {
+   "name": "th_d",
+   "value": 20.0,
+   "unit": "mm",
+   "expr": "",
+   "comment": "plug thread nominal diameter"
+  },
+  {
+   "name": "th_p",
+   "value": 1.5,
+   "unit": "mm",
+   "expr": "",
+   "comment": "plug thread pitch"
+  },
+  {
+   "name": "th_clear",
+   "value": 0.15,
+   "unit": "mm",
+   "expr": "",
+   "comment": "printing clearance per side, radial (internal +, external -)"
+  },
+  {
+   "name": "th_chamfer",
+   "value": 0.6,
+   "unit": "mm",
+   "expr": "",
+   "comment": "lead-in chamfer at the top of the threaded bore"
+  },
+  {
+   "name": "th_start",
+   "value": 0.3,
+   "unit": "mm",
+   "expr": "",
+   "comment": "gap between the stop face and the first internal thread groove"
+  },
+  {
+   "name": "stub_clear",
+   "value": 0.15,
+   "unit": "mm",
+   "expr": "",
+   "comment": "radial clearance stub / well"
+  },
+  {
+   "name": "head_d",
+   "value": 24.0,
+   "unit": "mm",
+   "expr": "",
+   "comment": "plug head diameter"
+  },
+  {
+   "name": "head_h",
+   "value": 3.0,
+   "unit": "mm",
+   "expr": "",
+   "comment": "plug head height"
+  },
+  {
+   "name": "head_gap",
+   "value": 0.3,
+   "unit": "mm",
+   "expr": "",
+   "comment": "head to boss top when the plug sits on the stop face"
+  },
+  {
+   "name": "flute_n",
+   "value": 16.0,
+   "unit": "ul",
+   "expr": "",
+   "comment": "grip flutes on the head"
+  },
+  {
+   "name": "flute_d",
+   "value": 2.0,
+   "unit": "mm",
+   "expr": "",
+   "comment": "grip flute diameter"
+  },
+  {
+   "name": "oring_id",
+   "value": 12.0,
+   "unit": "mm",
+   "expr": "",
+   "comment": "O-ring inner diameter (CAD-new ISO 3601-1 12 x 1.5 NBR70)"
+  },
+  {
+   "name": "oring_cs",
+   "value": 1.5,
+   "unit": "mm",
+   "expr": "",
+   "comment": "O-ring cross-section"
+  },
+  {
+   "name": "groove_root_d",
+   "value": 12.0,
+   "unit": "mm",
+   "expr": "",
+   "comment": "O-ring groove root diameter on the stub"
+  },
+  {
+   "name": "groove_w",
+   "value": 2.1,
+   "unit": "mm",
+   "expr": "",
+   "comment": "O-ring groove width (about 1.4 x cross-section)"
+  },
+  {
+   "name": "groove_top_gap",
+   "value": 0.4,
+   "unit": "mm",
+   "expr": "",
+   "comment": "O-ring groove top below the stop face"
+  },
+  {
+   "name": "win_d",
+   "value": 12.0,
+   "unit": "mm",
+   "expr": "",
+   "comment": "window: round coverslip glued into the stub"
+  },
+  {
+   "name": "win_t",
+   "value": 0.17,
+   "unit": "mm",
+   "expr": "",
+   "comment": "window thickness"
+  },
+  {
+   "name": "win_fit",
+   "value": 0.2,
+   "unit": "mm",
+   "expr": "",
+   "comment": "diametral clearance of the window recess"
+  },
+  {
+   "name": "win_ap",
+   "value": 10.0,
+   "unit": "mm",
+   "expr": "",
+   "comment": "clear aperture through the plug"
+  },
+  {
+   "name": "in_x",
+   "value": 27.0,
+   "unit": "mm",
+   "expr": "",
+   "comment": "inlet luer axis, distance from the chamber centre (+X)"
+  },
+  {
+   "name": "out_x",
+   "value": 25.0,
+   "unit": "mm",
+   "expr": "",
+   "comment": "outlet axis (reservoir or luer), distance from the centre (-X)"
+  },
+  {
+   "name": "luer_top",
+   "value": 12.0,
+   "unit": "mm",
+   "expr": "",
+   "comment": "luer face height"
+  },
+  {
+   "name": "luer_hub_d",
+   "value": 6.73,
+   "unit": "mm",
+   "expr": "",
+   "comment": "hub diameter at the base of the lugs (ISO 6.73)"
+  },
+  {
+   "name": "luer_lug_d",
+   "value": 7.83,
+   "unit": "mm",
+   "expr": "",
+   "comment": "diameter over the lugs (ISO 7.73-7.83)"
+  },
+  {
+   "name": "luer_open_d",
+   "value": 4.29,
+   "unit": "mm",
+   "expr": "",
+   "comment": "6 % taper bore at the face (ISO 4.270-4.315)"
+  },
+  {
+   "name": "luer_depth",
+   "value": 8.0,
+   "unit": "mm",
+   "expr": "",
+   "comment": "taper bore depth (male cone max 7.5)"
+  },
+  {
+   "name": "luer_taper_deg",
+   "value": 1.7184,
+   "unit": "deg",
+   "expr": "",
+   "comment": "half angle of the 6 % taper, atan(0.03)"
+  },
+  {
+   "name": "luer_free",
+   "value": 6.0,
+   "unit": "mm",
+   "expr": "",
+   "comment": "hub length below the face kept slim for the male collar (ISO >= 5.5)"
+  },
+  {
+   "name": "luer_foot_d",
+   "value": 10.0,
+   "unit": "mm",
+   "expr": "",
+   "comment": "foot diameter under the slim hub"
+  },
+  {
+   "name": "luer_lead",
+   "value": 5.0,
+   "unit": "mm",
+   "expr": "",
+   "comment": "lead of the double-start lug thread (pitch 2.5, right-hand)"
+  },
+  {
+   "name": "luer_lug_rev",
+   "value": 0.5,
+   "unit": "ul",
+   "expr": "",
+   "comment": "turns per lug (2 lugs at 180 deg)"
+  },
+  {
+   "name": "luer_lug_base",
+   "value": 0.95,
+   "unit": "mm",
+   "expr": "",
+   "comment": "lug width at the hub (ISO max 1.2)"
+  },
+  {
+   "name": "luer_lug_crest",
+   "value": 0.35,
+   "unit": "mm",
+   "expr": "",
+   "comment": "lug width at the crest (ISO min 0.3)"
+  },
+  {
+   "name": "luer_lug_gap",
+   "value": 0.3,
+   "unit": "mm",
+   "expr": "",
+   "comment": "lug top below the luer face"
+  },
+  {
+   "name": "res_d",
+   "value": 16.0,
+   "unit": "mm",
+   "expr": "",
+   "comment": "reservoir inner diameter"
+  },
+  {
+   "name": "res_wall",
+   "value": 1.5,
+   "unit": "mm",
+   "expr": "",
+   "comment": "reservoir wall"
+  },
+  {
+   "name": "res_floor",
+   "value": 1.5,
+   "unit": "mm",
+   "expr": "",
+   "comment": "reservoir floor above z = 0"
+  },
+  {
+   "name": "res_top",
+   "value": 9.0,
+   "unit": "mm",
+   "expr": "",
+   "comment": "reservoir rim height"
+  },
+  {
+   "name": "th_bore_d",
+   "value": 18.6762,
+   "unit": "mm",
+   "expr": "th_d - 1.0825 * th_p + 2 * th_clear",
+   "comment": "internal thread crest = bore diameter"
+  },
+  {
+   "name": "th_root_d",
+   "value": 20.3,
+   "unit": "mm",
+   "expr": "th_d + 2 * th_clear",
+   "comment": "internal thread root diameter"
+  },
+  {
+   "name": "th_ext_d",
+   "value": 19.7,
+   "unit": "mm",
+   "expr": "th_d - 2 * th_clear",
+   "comment": "plug thread crest diameter"
+  },
+  {
+   "name": "th_ext_root_d",
+   "value": 18.0762,
+   "unit": "mm",
+   "expr": "th_d - 2 * th_clear - 1.0825 * th_p",
+   "comment": "plug thread root diameter"
+  },
+  {
+   "name": "relief_d",
+   "value": 17.8762,
+   "unit": "mm",
+   "expr": "th_ext_root_d - 0.2 mm",
+   "comment": "plug thread relief above the stop face"
+  },
+  {
+   "name": "stub_d",
+   "value": 14.0,
+   "unit": "mm",
+   "expr": "well_d - 2 * stub_clear",
+   "comment": "plug stub diameter"
+  },
+  {
+   "name": "plug_top",
+   "value": 12.3,
+   "unit": "mm",
+   "expr": "boss_top + head_gap + head_h",
+   "comment": "top of the plug"
+  },
+  {
+   "name": "groove_z0",
+   "value": 1.5,
+   "unit": "mm",
+   "expr": "ledge_z - groove_top_gap - groove_w",
+   "comment": "O-ring groove bottom"
+  },
+  {
+   "name": "win_rec_d",
+   "value": 12.2,
+   "unit": "mm",
+   "expr": "win_d + win_fit",
+   "comment": "window recess diameter"
+  },
+  {
+   "name": "win_rec_h",
+   "value": 0.2,
+   "unit": "mm",
+   "expr": "win_t + 0.03 mm",
+   "comment": "window recess depth"
+  },
+  {
+   "name": "ti_w_root",
+   "value": 0.1875,
+   "unit": "mm",
+   "expr": "th_p / 8",
+   "comment": "internal groove width at its root"
+  },
+  {
+   "name": "ti_r_in",
+   "value": 9.2381,
+   "unit": "mm",
+   "expr": "th_bore_d / 2 - 0.1 mm",
+   "comment": "internal groove profile inner edge (inside the bore)"
+  },
+  {
+   "name": "ti_w_in",
+   "value": 1.2404,
+   "unit": "mm",
+   "expr": "ti_w_root + 1.1547 * (th_root_d / 2 - ti_r_in)",
+   "comment": "internal groove width at ti_r_in"
+  },
+  {
+   "name": "ti_zc",
+   "value": 4.9202,
+   "unit": "mm",
+   "expr": "ledge_z + th_start + ti_w_in / 2",
+   "comment": "first internal groove centre (at +X)"
+  },
+  {
+   "name": "ti_height",
+   "value": 5.5798,
+   "unit": "mm",
+   "expr": "boss_top + th_p - ti_zc",
+   "comment": "internal thread coil height"
+  },
+  {
+   "name": "te_w_root",
+   "value": 0.375,
+   "unit": "mm",
+   "expr": "th_p / 4",
+   "comment": "external groove width at its root"
+  },
+  {
+   "name": "te_r_out",
+   "value": 9.95,
+   "unit": "mm",
+   "expr": "th_ext_d / 2 + 0.1 mm",
+   "comment": "external groove profile outer edge"
+  },
+  {
+   "name": "te_w_out",
+   "value": 1.4279,
+   "unit": "mm",
+   "expr": "te_w_root + 1.1547 * (te_r_out - th_ext_root_d / 2)",
+   "comment": "external groove width at te_r_out"
+  },
+  {
+   "name": "te_zc",
+   "value": 4.1702,
+   "unit": "mm",
+   "expr": "ti_zc - th_p / 2",
+   "comment": "first external groove centre (at +X)"
+  },
+  {
+   "name": "te_height",
+   "value": 5.3298,
+   "unit": "mm",
+   "expr": "boss_top + 0.5 mm - te_zc",
+   "comment": "external thread coil height (runs out into the head)"
+  },
+  {
+   "name": "lug_r_in",
+   "value": 3.265,
+   "unit": "mm",
+   "expr": "luer_hub_d / 2 - 0.1 mm",
+   "comment": "lug profile inner edge (inside the hub)"
+  },
+  {
+   "name": "lug_zc",
+   "value": 8.725,
+   "unit": "mm",
+   "expr": "luer_top - luer_lug_gap - luer_lug_base / 2 - luer_lug_rev * luer_lead",
+   "comment": "lug profile centre at the coil start"
+  },
+  {
+   "name": "luer_bot_z",
+   "value": 4.0,
+   "unit": "mm",
+   "expr": "luer_top - luer_depth",
+   "comment": "bottom of the taper bore"
+  }
+ ],
+ "variant": "A",
+ "outlet": "reservoir",
+ "names": {
+  "assembly": "ASS - 9300 - MFLEAF - V04 - A",
+  "chip": "PRT - 9301 - MFLEAFCHIP - V04 - A",
+  "plug": "PRT - 9302 - MFLEAFPLUG - V04"
+ },
+ "chip": {
+  "bodies": 1,
+  "features": 19,
+  "user_parameters": 53,
+  "volume_mm3": 6838.34,
+  "faces": 53,
+  "range_mm": [
+   -37.5,
+   -12.5,
+   -0.25,
+   37.5,
+   12.5,
+   12.0
+  ],
+  "health": [],
+  "warnings": [],
+  "not_parametric": []
+ },
+ "plug": {
+  "bodies": 1,
+  "features": 12,
+  "user_parameters": 42,
+  "volume_mm3": 2195.56,
+  "faces": 69,
+  "range_mm": [
+   -11.959,
+   -11.959,
+   0.8,
+   11.959,
+   11.959,
+   12.301
+  ],
+  "health": [],
+  "warnings": [],
+  "not_parametric": []
+ },
+ "coverslip": {
+  "bodies": 1,
+  "features": 1,
+  "user_parameters": 3,
+  "volume_mm3": 244.8,
+  "faces": 6,
+  "range_mm": [
+   -30.0,
+   -12.0,
+   -0.17,
+   30.0,
+   12.0,
+   0.0
+  ],
+  "health": [],
+  "warnings": [],
+  "not_parametric": []
+ },
+ "window": {
+  "bodies": 1,
+  "features": 1,
+  "user_parameters": 2,
+  "volume_mm3": 19.23,
+  "faces": 3,
+  "range_mm": [
+   -6.0,
+   -6.0,
+   0.0,
+   6.0,
+   6.0,
+   0.17
+  ],
+  "health": [],
+  "warnings": [],
+  "not_parametric": []
+ },
+ "assembly": {
+  "interference_mm3": {
+   "chip/plug": 0,
+   "chip/coverslip": 0,
+   "chip/window": 0,
+   "plug/window": 0,
+   "plug/coverslip": 0,
+   "chip/oring": 14.36,
+   "plug/oring": 0
+  },
+  "occurrences": [
+   {
+    "role": "chip",
+    "occurrence": "PRT - 9301 - MFLEAFCHIP - V04 - A:1",
+    "file": "C:\\Users\\benir\\Documents\\openuc2-microfluidics\\chips\\leaf_chamber\\INVENTOR\\PRT - 9301 - MFLEAFCHIP - V04 - A.ipt",
+    "reference": false
+   },
+   {
+    "role": "plug",
+    "occurrence": "PRT - 9302 - MFLEAFPLUG - V04:1",
+    "file": "C:\\Users\\benir\\Documents\\openuc2-microfluidics\\chips\\leaf_chamber\\INVENTOR\\PRT - 9302 - MFLEAFPLUG - V04.ipt",
+    "reference": false
+   },
+   {
+    "role": "bottom coverslip",
+    "occurrence": "BUY - Cover glass - 24 x 60 x 0.17:1",
+    "file": "C:\\Users\\benir\\Documents\\openuc2-microfluidics\\chips\\leaf_chamber\\INVENTOR\\BUY - Cover glass - 24 x 60 x 0.17.ipt",
+    "reference": false
+   },
+   {
+    "role": "window",
+    "occurrence": "BUY - Cover glass - D12 x 0.17:1",
+    "file": "C:\\Users\\benir\\Documents\\openuc2-microfluidics\\chips\\leaf_chamber\\INVENTOR\\BUY - Cover glass - D12 x 0.17.ipt",
+    "reference": false
+   },
+   {
+    "role": "O-ring",
+    "occurrence": "ISO 3601-1 - O-ring - 12 x 1.5 - NBR70:1",
+    "file": "C:\\Users\\benir\\Documents\\openUC2-CAD-new\\workspace\\STD\\ISO 3601-1 - O-rings\\ISO 3601-1 - O-ring - 12 x 1.5 - NBR70.ipt",
+    "reference": false
+   }
+  ],
+  "removed": 0
+ },
+ "checks": [
+  [
+   "info",
+   "chamber volume 128 uL (leaf space 14.3 x 0.8 mm), channels 19 uL over 37.7 mm"
+  ],
+  [
+   "info",
+   "O-ring 12 x 1.5: gland 1.15 mm, squeeze 23%, fill 73%, stretch +0.0%"
+  ],
+  [
+   "info",
+   "thread M20x1.5: bore 18.676, plug crest 19.700, 3.1 turns, radial engagement 0.51 mm"
+  ],
+  [
+   "info",
+   "reservoir 1.51 mL"
+  ],
+  [
+   "info",
+   "heights: luer face 12, plug top 12.3, coverslip bottom -0.17 mm"
+  ]
+ ],
+ "overrides": {}
+}

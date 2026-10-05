@@ -1,0 +1,8 @@
+# Inventor housekeeping
+OldVersions/
+*.lck
+lockfile.lck
+
+# Python
+__pycache__/
+*.pyc
