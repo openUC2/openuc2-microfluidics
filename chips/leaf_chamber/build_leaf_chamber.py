@@ -1,13 +1,15 @@
 """Build the leaf chamber chip as native, parametric Inventor parts and an assembly.
 
-    python build_leaf_chamber.py                     # variants A and B, plug, glass, assemblies
-    python build_leaf_chamber.py --variant A --set ch_w=0.8 --set chamber_h=1.0
+    python build_leaf_chamber.py                     # variant B (default): chip, plug, glass, assembly
+    python build_leaf_chamber.py --variant all       # A and B
+    python build_leaf_chamber.py --set ch_w=3 --set ch_h=1.0 --set chamber_h=1.5 --set plug_th_clear=0.3
     python build_leaf_chamber.py --params my_chip.json --show
     python build_leaf_chamber.py --variant A --from-ipt "INVENTOR\\PRT - 9301 - MFLEAFCHIP - V04 - A.ipt"
 
 Writes into INVENTOR/ (CAD-new style names, provisional numbers - see leaf_chamber.NUMBERS):
   PRT - 9301 - MFLEAFCHIP - V04 - A|B.ipt   the printed chip (A: reservoir outlet, B: luer outlet)
-  PRT - 9302 - MFLEAFPLUG - V04.ipt         the printed screw plug with window and O-ring groove
+  PRT - 9302 - MFLEAFPLUG - V04.ipt         the printed screw plug with O-ring groove (solid, or with a
+                                            glass window when plug_window = 1)
   BUY - Cover glass - 24 x 60 x 0.17.ipt    bottom coverslip;  BUY - Cover glass - D12 x 0.17.ipt window
   ASS - 9300 - MFLEAF - V04 - A|B.iam       chip + plug + coverslips + CAD-new O-ring, closed state
   ... .stp (AP214) copies and "<name> - params.json" (parameters, checks, build report)
@@ -150,7 +152,9 @@ def build_chip(app, ps: ParamSet, variant: str, path: Path) -> dict:
 
 # ---------------------------------------------------------------------- the plug
 def build_plug(app, ps: ParamSet, path: Path) -> dict:
-    part = NativePart(app, ps, "Leaf chamber screw plug: window D12 glued in the stub, O-ring 12 x 1.5 on the stub")
+    window = ps.plug_window > 0.5
+    part = NativePart(app, ps, f"Leaf chamber screw plug, O-ring {ps.oring_id:g} x {ps.oring_cs:g} on the stub, "
+                               + (f"window D{ps.win_d:g} glued in the stub" if window else "solid"))
     try:
         s = part.sketch_z("boss_top + head_gap", "head sketch")
         part.circle(s, 0, 0, "head_d", "head")
@@ -175,12 +179,13 @@ def build_plug(app, ps: ParamSet, path: Path) -> dict:
         part.polygon(s, [("th_ext_root_d / 2", "te_zc - te_w_root / 2"), ("te_r_out", "te_zc - te_w_out / 2"),
                          ("te_r_out", "te_zc + te_w_out / 2"), ("th_ext_root_d / 2", "te_zc + te_w_root / 2")], "external groove")
         part.coil(s, part.Z_AXIS, "th_p", kCut, f"M{ps.th_d:g}x{ps.th_p:g} external thread (coil cut, RH)", height="te_height")
-        s = part.sketch_z("plug_top", "aperture sketch")
-        part.circle(s, 0, 0, "win_ap", "aperture")
-        part.extrude_through(s, kNeg, "window aperture")
-        s = part.sketch_z("chamber_h", "window recess sketch")
-        part.circle(s, 0, 0, "win_rec_d", "window recess")
-        part.extrude(s, "win_rec_h", kPos, kCut, "window recess")
+        if window:                       # aperture + recess for a glued round coverslip
+            s = part.sketch_z("plug_top", "aperture sketch")
+            part.circle(s, 0, 0, "win_ap", "aperture")
+            part.extrude_through(s, kNeg, "window aperture")
+            s = part.sketch_z("chamber_h", "window recess sketch")
+            part.circle(s, 0, 0, "win_rec_d", "window recess")
+            part.extrude(s, "win_rec_h", kPos, kCut, "window recess")
         s = part.sketch_z("plug_top", "grip flute sketch")
         part.circle(s, "head_d / 2", 0, "flute_d", "grip flute")
         flute = part.extrude(s, "head_h + 0.5 mm", kNeg, kCut, "grip flute")
@@ -215,8 +220,9 @@ def build_assembly(app, ps: ParamSet, variant: str, files: dict, path: Path) -> 
         b = Builder(app, doc)
         occ = {"chip": b.place("chip", files["chip"], (0, 0, 0)),
                "plug": b.place("plug", files["plug"], (0, 0, 0)),
-               "coverslip": b.place("bottom coverslip", files["coverslip"], (0, 0, 0)),
-               "window": b.place("window", files["window"], (0, 0, ps.chamber_h))}
+               "coverslip": b.place("bottom coverslip", files["coverslip"], (0, 0, 0))}
+        if files.get("window"):
+            occ["window"] = b.place("window", files["window"], (0, 0, ps.chamber_h))
         if files.get("oring"):
             # CAD-new O-ring: axis along its Y, cross-section between y = 0 and cs -> part Y onto model Z
             zc = ps.groove_z0 + ps.groove_w / 2
@@ -256,8 +262,9 @@ def build(app, variants: list[str], overrides: dict, do_assembly: bool, lib: Cad
         asm = INV_DIR / f"{nm['assembly']}.iam"
         reopen = close_if_open(app, asm)
         files = {"chip": INV_DIR / f"{nm['chip']}.ipt", "plug": INV_DIR / f"{nm['plug']}.ipt",
-                 "coverslip": INV_DIR / f"{coverslip_name(ps.cs_l, ps.cs_w, ps.cs_t)}.ipt",
-                 "window": INV_DIR / f"{round_coverslip_name(ps.win_d, ps.win_t)}.ipt"}
+                 "coverslip": INV_DIR / f"{coverslip_name(ps.cs_l, ps.cs_w, ps.cs_t)}.ipt"}
+        if ps.plug_window > 0.5:
+            files["window"] = INV_DIR / f"{round_coverslip_name(ps.win_d, ps.win_t)}.ipt"
         rep = {"variant": v, "outlet": VARIANTS[v]["outlet"], "names": nm}
         print(f"\n== chip {files['chip'].name}")
         rep["chip"] = build_chip(app, ps, v, files["chip"])
@@ -269,7 +276,7 @@ def build(app, variants: list[str], overrides: dict, do_assembly: bool, lib: Cad
             plug_done = files["plug"]
         for key, fn, args in (("coverslip", glass_plate, (ps.cs_l, ps.cs_w, ps.cs_t)),
                               ("window", glass_disc, (ps.win_d, ps.win_t))):
-            if files[key].name not in stock_done:
+            if key in files and files[key].name not in stock_done:
                 close_if_open(app, files[key])
                 rep[key] = fn(app, files[key], *args)
                 stock_done[files[key].name] = files[key]
@@ -294,7 +301,7 @@ def build(app, variants: list[str], overrides: dict, do_assembly: bool, lib: Cad
 def main() -> None:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--variant", choices=sorted(VARIANTS) + ["all"], default="all")
+    ap.add_argument("--variant", choices=sorted(VARIANTS) + ["all"], default="B")
     ap.add_argument("--set", action="append", metavar="NAME=VALUE", help="override a parameter (repeatable)")
     ap.add_argument("--params", help="JSON file {name: value} with overrides")
     ap.add_argument("--from-ipt", help="take the base parameters of a generated .ipt (edits made in Inventor)")

@@ -81,11 +81,12 @@ def parameters() -> list:
         D("boss_top", "ledge_z + th_len", comment="top of the threaded boss"),
         P("th_d", 20.0, comment="plug thread nominal diameter"),
         P("th_p", 1.5, comment="plug thread pitch"),
-        P("th_clear", 0.15, comment="printing clearance per side, radial (internal +, external -)"),
+        P("th_clear", 0.15, comment="printing clearance of the chip's threaded bore, radial per side"),
+        P("plug_th_clear", 0.25, comment="printing clearance of the plug thread, radial per side (plug only: loosen by reprinting the plug)"),
         P("th_chamfer", 0.6, comment="lead-in chamfer at the top of the threaded bore"),
         P("th_start", 0.3, comment="gap between the stop face and the first internal thread groove"),
         # ---- plug
-        P("stub_clear", 0.15, comment="radial clearance stub / well"),
+        P("stub_clear", 0.25, comment="radial clearance stub / well (plug only)"),
         P("head_d", 24.0, comment="plug head diameter"),
         P("head_h", 3.0, comment="plug head height"),
         P("head_gap", 0.3, comment="head to boss top when the plug sits on the stop face"),
@@ -96,7 +97,8 @@ def parameters() -> list:
         P("groove_root_d", 12.0, comment="O-ring groove root diameter on the stub"),
         P("groove_w", 2.1, comment="O-ring groove width (about 1.4 x cross-section)"),
         P("groove_top_gap", 0.4, comment="O-ring groove top below the stop face"),
-        P("win_d", 12.0, comment="window: round coverslip glued into the stub"),
+        P("plug_window", 0, "ul", comment="1 = glass window glued into the stub + aperture; 0 = solid plug (blocks transmitted light unless printed clear)"),
+        P("win_d", 12.0, comment="window (plug_window = 1): round coverslip glued into the stub"),
         P("win_t", 0.17, comment="window thickness"),
         P("win_fit", 0.2, comment="diametral clearance of the window recess"),
         P("win_ap", 10.0, comment="clear aperture through the plug"),
@@ -124,8 +126,8 @@ def parameters() -> list:
         # ---- derived (Inventor expressions)
         D("th_bore_d", "th_d - 1.0825 * th_p + 2 * th_clear", comment="internal thread crest = bore diameter"),
         D("th_root_d", "th_d + 2 * th_clear", comment="internal thread root diameter"),
-        D("th_ext_d", "th_d - 2 * th_clear", comment="plug thread crest diameter"),
-        D("th_ext_root_d", "th_d - 2 * th_clear - 1.0825 * th_p", comment="plug thread root diameter"),
+        D("th_ext_d", "th_d - 2 * plug_th_clear", comment="plug thread crest diameter"),
+        D("th_ext_root_d", "th_d - 2 * plug_th_clear - 1.0825 * th_p", comment="plug thread root diameter"),
         D("relief_d", "th_ext_root_d - 0.2 mm", comment="plug thread relief above the stop face"),
         D("stub_d", "well_d - 2 * stub_clear", comment="plug stub diameter"),
         D("plug_top", "boss_top + head_gap + head_h", comment="top of the plug"),
@@ -153,7 +155,7 @@ def parameters() -> list:
     ]
 
 
-def make_params(variant: str = "A", overrides: dict | None = None) -> ParamSet:
+def make_params(variant: str = "B", overrides: dict | None = None) -> ParamSet:
     ps = ParamSet(parameters())
     for k, v in VARIANTS[variant]["set"].items():
         ps.set(k, v)
@@ -173,73 +175,100 @@ def names(variant: str) -> dict:
 
 # ---------------------------------------------------------------------- checks
 def checks(ps: ParamSet, outlet: str) -> list[tuple[str, str]]:
-    """(level, message): level 'error' blocks the build, 'warn' is printed, 'info' is a figure."""
+    """(level, message): level 'error' blocks the build, 'warn' is printed, 'info' is a figure.
+    Limits are compared with a 1 um tolerance, so a value exactly on a limit passes."""
     out = []
+    eps = 1e-3
 
     def need(ok, msg, level="error"):
         if not ok:
             out.append((level, msg))
 
+    def ge(a, b):
+        return a >= b - eps
+
+    def le(a, b):
+        return a <= b + eps
+
     p = ps
+    window = p.plug_window > 0.5
     # body / coverslip
-    need(p.boss_d <= p.chip_w, f"boss_d {p.boss_d} wider than the chip ({p.chip_w})")
-    need(p.cs_w <= p.chip_w, f"coverslip width {p.cs_w} > chip width {p.chip_w}")
-    need(p.cs_l + 2 * p.cs_gap <= p.chip_l - 6, "coverslip band leaves < 3 mm feet at the chip ends")
-    need(p.cs_recess == 0 or p.cs_recess >= p.cs_t, f"cs_recess {p.cs_recess} < coverslip {p.cs_t}: the glass stands proud", "warn")
-    need(p.well_d / 2 + 3 <= p.cs_w / 2, "less than 3 mm glue width beside the well")
+    need(le(p.boss_d, p.chip_w), f"boss_d {p.boss_d} wider than the chip ({p.chip_w})")
+    need(le(p.cs_w, p.chip_w), f"coverslip width {p.cs_w} > chip width {p.chip_w}")
+    need(le(p.cs_l + 2 * p.cs_gap, p.chip_l - 6), "coverslip band leaves < 3 mm feet at the chip ends")
+    need(p.cs_recess == 0 or ge(p.cs_recess, p.cs_t), f"cs_recess {p.cs_recess} < coverslip {p.cs_t}: the glass stands proud", "warn")
+    need(le(p.well_d / 2 + 3, p.cs_w / 2), "less than 3 mm glue width beside the well")
+    need(le(p.ch_w / 2 + 3, p.cs_w / 2), "less than 3 mm glue width beside the channel")
     # open channels (ch_floor = 0) and their vias must sit on the coverslip; closed ones only need the well covered
     if p.ch_floor == 0:
         for tag, x in (("inlet", p.in_x), ("outlet", p.out_x)):
-            need(x + p.via_d / 2 + 2.0 <= p.cs_l / 2, f"{tag} via at {x} mm is within 2 mm of the coverslip end ({p.cs_l / 2})")
+            need(le(x + p.via_d / 2 + 2.0, p.cs_l / 2),
+                 f"{tag} channel end at {x} mm is within 2 mm of the coverslip end ({p.cs_l / 2})")
     else:
-        need(p.well_d / 2 + 3 <= p.cs_l / 2, "less than 3 mm glue length beside the well")
-        need(p.ch_floor >= 0.3, "closed channel floor < 0.3 mm", "warn")
-        need(p.ch_h >= 0.5 and p.ch_w >= 0.5, "closed channels below 0.5 mm are hard to clear of uncured resin", "warn")
-    need(p.ch_floor + p.ch_h <= p.chamber_h, f"channel top {p.ch_floor + p.ch_h} above the chamber ceiling {p.chamber_h} - the stub would block it")
+        need(le(p.well_d / 2 + 3, p.cs_l / 2), "less than 3 mm glue length beside the well")
+        need(ge(p.ch_floor, 0.3), "closed channel floor < 0.3 mm", "warn")
+        need(ge(p.ch_h, 0.5) and ge(p.ch_w, 0.5), "closed channels below 0.5 mm are hard to clear of uncured resin", "warn")
+    need(le(p.ch_floor + p.ch_h, p.chamber_h),
+         f"channel top {p.ch_floor + p.ch_h:g} above the chamber ceiling (chamber_h {p.chamber_h:g}) - the plug stub would "
+         f"block the channel mouth: raise chamber_h or lower ch_h")
+    need(le(p.ch_floor + p.ch_h, p.base_t - 1.0), "less than 1 mm slab above the channel")
     # well, O-ring gland (static radial seal on the stub)
     gland = (p.well_d - p.groove_root_d) / 2
     squeeze = 1 - gland / p.oring_cs
     fill = (math.pi / 4 * p.oring_cs ** 2) / (gland * p.groove_w)
     stretch = p.groove_root_d / p.oring_id - 1
-    need(0.15 <= squeeze <= 0.32, f"O-ring squeeze {squeeze:.0%} outside 15-32 %")
-    need(fill <= 0.85, f"O-ring groove fill {fill:.0%} > 85 %")
-    need(-0.03 <= stretch <= 0.06, f"O-ring stretch {stretch:+.1%} outside -3..+6 %")
-    need(p.groove_z0 - (p.chamber_h + p.win_rec_h) >= 0.5, "less than 0.5 mm stub wall between window recess and O-ring groove")
-    need((p.groove_root_d - p.win_ap) / 2 >= 0.8, "less than 0.8 mm between O-ring groove root and aperture")
-    need((p.stub_d - p.win_rec_d) / 2 >= 0.6, f"stub wall at the window {(p.stub_d - p.win_rec_d) / 2:.2f} mm < 0.6")
-    need((p.win_d - p.win_ap) / 2 >= 0.6, "window rests on less than 0.6 mm")
+    need(ge(squeeze, 0.15) and le(squeeze, 0.32),
+         f"O-ring squeeze {squeeze:.0%} outside 15-32 % (about groove_root_d = well_d - 1.55 * oring_cs)")
+    need(le(fill, 0.85), f"O-ring groove fill {fill:.0%} > 85 % (widen groove_w)")
+    need(ge(stretch, -0.03) and le(stretch, 0.06), f"O-ring stretch {stretch:+.1%} outside -3..+6 % (groove_root_d vs oring_id)")
+    need(ge((p.stub_d - p.groove_root_d) / 2, 0.5 * p.oring_cs), "O-ring groove shallower than half the cross-section (stub_clear too big?)")
     need(p.groove_z0 > p.chamber_h, "O-ring groove below the stub bottom")
+    if window:
+        need(ge(p.groove_z0 - (p.chamber_h + p.win_rec_h), 0.5), "less than 0.5 mm stub wall between window recess and O-ring groove")
+        need(ge((p.groove_root_d - p.win_ap) / 2, 0.8), "less than 0.8 mm between O-ring groove root and aperture")
+        need(ge((p.stub_d - p.win_rec_d) / 2, 0.6), f"stub wall at the window {(p.stub_d - p.win_rec_d) / 2:.2f} mm < 0.6")
+        need(ge((p.win_d - p.win_ap) / 2, 0.6), "window rests on less than 0.6 mm")
+    else:
+        need(ge(p.groove_z0 - p.chamber_h, 0.5), "less than 0.5 mm stub below the O-ring groove")
     # thread and stop face
-    need((p.boss_d - p.th_root_d) / 2 >= 1.2, f"boss wall behind the thread {(p.boss_d - p.th_root_d) / 2:.2f} mm < 1.2")
-    need((p.th_bore_d - p.well_d) / 2 - p.well_chamfer >= 0.8, "stop face (ledge) narrower than 0.8 mm")
-    need(p.boss_top - p.ledge_z - p.th_start >= 3 * p.th_p, "less than 3 thread turns engaged", "warn")
-    need(0.5413 * p.th_p - 2 * p.th_clear >= 0.35, "radial thread engagement < 0.35 mm")
+    engage = 0.5413 * p.th_p - p.th_clear - p.plug_th_clear
+    need(ge((p.boss_d - p.th_root_d) / 2, 1.2), f"boss wall behind the thread {(p.boss_d - p.th_root_d) / 2:.2f} mm < 1.2")
+    need(ge((p.th_bore_d - p.well_d) / 2 - p.well_chamfer, 0.8), "stop face (ledge) narrower than 0.8 mm")
+    need(ge(p.boss_top - p.ledge_z - p.th_start, 3 * p.th_p), "less than 3 thread turns engaged", "warn")
+    need(ge(engage, 0.25), f"radial thread engagement {engage:.2f} mm < 0.25 (less clearance or a bigger th_p)")
+    need(ge(engage, 0.35), f"radial thread engagement {engage:.2f} mm is shallow", "warn")
     need(p.relief_d > p.stub_d + 1.0, "plug stop face narrower than 0.5 mm")
     # luer ports
     luer_ports = [("inlet", p.in_x)] + ([("outlet", p.out_x)] if outlet == "luer" else [])
     for tag, x in luer_ports:
-        need(x + p.luer_foot_d / 2 <= p.chip_l / 2 - 2, f"{tag} luer foot within 2 mm of the chip end")
-        need(x - p.luer_foot_d / 2 >= p.boss_d / 2 + 1, f"{tag} luer foot touches the chamber boss")
-    need((p.luer_hub_d - p.luer_open_d) / 2 >= 1.0, "luer hub wall < 1 mm at the face")
-    need(p.lug_zc - p.luer_lug_base / 2 >= p.luer_top - p.luer_free, "lugs reach below the slim hub (into the foot)")
-    need(p.luer_bot_z >= p.ch_floor + p.ch_h + 1.0, "luer bore bottom less than 1 mm above the channel")
+        need(le(x + p.luer_foot_d / 2, p.chip_l / 2 - 2), f"{tag} luer foot within 2 mm of the chip end")
+        need(ge(x - p.luer_foot_d / 2, p.boss_d / 2 + 1), f"{tag} luer foot touches the chamber boss")
+    need(ge((p.luer_hub_d - p.luer_open_d) / 2, 1.0), "luer hub wall < 1 mm at the face")
+    need(ge(p.lug_zc - p.luer_lug_base / 2, p.luer_top - p.luer_free), "lugs reach below the slim hub (into the foot)")
+    need(ge(p.luer_bot_z, p.ch_floor + p.ch_h + 1.0), "luer bore bottom less than 1 mm above the channel")
     need(p.luer_top - p.luer_free > p.base_t, "luer foot height <= 0")
     # reservoir
     if outlet == "reservoir":
         r_out = p.res_d / 2 + p.res_wall
-        need(p.out_x + r_out <= p.chip_l / 2 - 2, "reservoir within 2 mm of the chip end")
-        need(p.out_x - r_out >= p.boss_d / 2, "reservoir merges into the chamber boss", "warn")
-        need(p.res_floor >= p.ch_floor + p.ch_h + 0.8, "reservoir floor < 0.8 mm above the channel")
+        need(le(p.out_x + r_out, p.chip_l / 2 - 2), "reservoir within 2 mm of the chip end")
+        need(ge(p.out_x - r_out, p.boss_d / 2), "reservoir merges into the chamber boss", "warn")
+        need(ge(p.res_floor, p.ch_floor + p.ch_h + 0.8), "reservoir floor < 0.8 mm above the channel")
     # figures
     chamber_ul = math.pi / 4 * p.well_d ** 2 * p.chamber_h
     ch_len = (p.in_x - p.well_d / 2) + (p.out_x - p.well_d / 2)
     ch_ul = ch_len * p.ch_w * p.ch_h
     out.append(("info", f"chamber volume {chamber_ul:.0f} uL (leaf space {p.well_d:g} x {p.chamber_h:g} mm), "
-                        f"channels {ch_ul:.0f} uL over {ch_len:.1f} mm"))
+                        f"channels {p.ch_w:g} x {p.ch_h:g} mm, {ch_ul:.0f} uL over {ch_len:.1f} mm"))
     out.append(("info", f"O-ring {p.oring_id:g} x {p.oring_cs:g}: gland {gland:.2f} mm, squeeze {squeeze:.0%}, "
                         f"fill {fill:.0%}, stretch {stretch:+.1%}"))
     out.append(("info", f"thread M{p.th_d:g}x{p.th_p:g}: bore {p.th_bore_d:.3f}, plug crest {p.th_ext_d:.3f}, "
-                        f"{(p.boss_top - p.ledge_z - p.th_start) / p.th_p:.1f} turns, radial engagement {0.5413 * p.th_p - 2 * p.th_clear:.2f} mm"))
+                        f"radial play {p.th_clear + p.plug_th_clear:.2f} mm, engagement {engage:.2f} mm, "
+                        f"{(p.boss_top - p.ledge_z - p.th_start) / p.th_p:.1f} turns; stub {p.stub_d:g} in well {p.well_d:g}"))
+    if window:
+        out.append(("info", f"plug: glass window D{p.win_d:g} + aperture D{p.win_ap:g}"))
+    else:
+        out.append(("info", "plug: solid (no window) - in black resin it blocks the transmitted light; "
+                            "print it in Clear resin or set plug_window=1"))
     if outlet == "reservoir":
         out.append(("info", f"reservoir {math.pi / 4 * p.res_d ** 2 * (p.res_top - p.res_floor) / 1000:.2f} mL"))
     out.append(("info", f"heights: luer face {p.luer_top:g}, plug top {p.plug_top:g}, coverslip bottom {-p.cs_t:g} mm"))
@@ -269,7 +298,7 @@ def overrides_from(args) -> dict:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--variant", choices=sorted(VARIANTS), default="A")
+    ap.add_argument("--variant", choices=sorted(VARIANTS), default="B")
     ap.add_argument("--set", action="append", metavar="NAME=VALUE")
     ap.add_argument("--params", help="JSON file {name: value}")
     a = ap.parse_args()

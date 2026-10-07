@@ -53,25 +53,42 @@ def _neg(expr: str) -> str:
 
 
 class Sk:
-    """A sketch with lazily projected origin and axes, and the model->sketch axis mapping."""
+    """A sketch on a plane parallel to XY (kind "xy", fixed z), XZ ("xz", fixed y) or YZ ("yz",
+    fixed x). Sketch coordinates are given as model (u, v): (x, y), (x, z) or (y, z)."""
 
-    def __init__(self, part: "NativePart", plane, name: str, z: float | None = None):
+    def __init__(self, part: "NativePart", plane, name: str, kind: str = "xy", at: float = 0.0):
         self.part = part
         self.sk = part.cd.Sketches.Add(plane)
         _name(self.sk, name)
         self.name = name
-        self.z = z                                        # None: an XZ sketch
-        self._o = self._xa = self._ya = self._za = None
+        self.kind, self.at = kind, at
+        self.z = at if kind == "xy" else None            # legacy: XY sketches carry their z
+        self._o = self._ua = self._va = None
         a, b = self.pt(0.0, 0.0), self.pt(10.0, 0.0)
         x_h = abs(b.X - a.X) > abs(b.Y - a.Y)
-        self.dim_x = kHorizontalDim if x_h else kVerticalDim          # model X (first coordinate)
-        self.dim_v = kVerticalDim if x_h else kHorizontalDim          # model Y (XY sketches) or Z (XZ)
+        self.dim_x = kHorizontalDim if x_h else kVerticalDim          # first model coordinate
+        self.dim_v = kVerticalDim if x_h else kHorizontalDim          # second model coordinate
+
+    def xyz(self, u: float, v: float):
+        if self.kind == "xy":
+            return (u, v, self.at)
+        if self.kind == "xz":
+            return (u, self.at, v)
+        return (self.at, u, v)
 
     def pt(self, u: float, v: float):
-        """Sketch point of model (u, v): (x, y) at height z, or (x, z) on the XZ plane."""
-        tg = self.part.tg
-        p = tg.CreatePoint(u / 10, v / 10, self.z / 10) if self.z is not None else tg.CreatePoint(u / 10, 0, v / 10)
-        return self.sk.ModelToSketchSpace(p)
+        """Sketch point of model (u, v)."""
+        x, y, z = self.xyz(u, v)
+        return self.sk.ModelToSketchSpace(self.part.tg.CreatePoint(x / 10, y / 10, z / 10))
+
+    def model_uv(self, sp) -> tuple[float, float]:
+        """(u, v) in mm of a sketch point."""
+        q = self.sk.SketchToModelSpace(sp.Geometry)
+        if self.kind == "xy":
+            return q.X * 10, q.Y * 10
+        if self.kind == "xz":
+            return q.X * 10, q.Z * 10
+        return q.Y * 10, q.Z * 10
 
     def tp(self, u: float, v: float, du: float = 1.5, dv: float = 1.5):
         p = self.pt(u + du, v + dv)
@@ -84,17 +101,22 @@ class Sk:
         return self._o
 
     @property
-    def xa(self):
-        if self._xa is None:
-            self._xa = self.sk.AddByProjectingEntity(self.part.X_AXIS)
-        return self._xa
+    def ua(self):
+        """The projected model axis along which the second coordinate is 0."""
+        if self._ua is None:
+            ax = self.part.Y_AXIS if self.kind == "yz" else self.part.X_AXIS
+            self._ua = self.sk.AddByProjectingEntity(ax)
+        return self._ua
+
+    xa = ua
 
     @property
     def va(self):
-        """The projected second model axis: Y on XY sketches, Z on XZ sketches."""
-        if self._ya is None:
-            self._ya = self.sk.AddByProjectingEntity(self.part.Y_AXIS if self.z is not None else self.part.Z_AXIS)
-        return self._ya
+        """The projected model axis along which the first coordinate is 0."""
+        if self._va is None:
+            ax = self.part.Y_AXIS if self.kind == "xy" else self.part.Z_AXIS
+            self._va = self.sk.AddByProjectingEntity(ax)
+        return self._va
 
     def profile(self):
         return self.sk.Profiles.AddForSolid()
@@ -151,44 +173,92 @@ class NativePart:
             self.unbound.append(f"{what} ({str(exc)[:40]})")
 
     # ------------------------------------------------------------------ planes, axes, sketches
+    def _offset_plane(self, base, base_name: str, expr, want: float, comp: str):
+        """Work plane parallel to `base` through the model coordinate `comp` = expr; the sign of
+        Inventor's offset direction is settled by reading the plane back."""
+        key = f"{base_name}={expr}"
+        if key in self._planes:
+            return self._planes[key]
+        if abs(want) < 1e-9 and str(expr).strip() in ("0", "0 mm", "0.0", "0.0 mm"):
+            self._planes[key] = base
+            return base
+        wp = None
+        for e in (str(expr), f"-({expr})"):
+            try:
+                cand = self.cd.WorkPlanes.AddByPlaneAndOffset(base, e)
+            except Exception:
+                continue
+            got = getattr(cand.Plane.RootPoint, comp) * 10
+            if abs(got - want) < 1e-3:
+                wp = cand
+                break
+            cand.Delete()
+        if wp is None:                                   # numeric fallback, not parametric
+            self.unbound.append(f"work plane {key}: offset not parametric")
+            for d in (want / 10, -want / 10):
+                cand = self.cd.WorkPlanes.AddByPlaneAndOffset(base, d)
+                if abs(getattr(cand.Plane.RootPoint, comp) * 10 - want) < 1e-3:
+                    wp = cand
+                    break
+                cand.Delete()
+        wp.Visible = False
+        _name(wp, key)
+        self._planes[key] = wp
+        return wp
+
     def plane_z(self, expr) -> tuple[object, float]:
         """Work plane parallel to XY at z = expr (XY itself for 0)."""
         z = self.x(expr)
-        key = str(expr)
-        if abs(z) < 1e-9 and key.strip() in ("0", "0 mm", "0.0"):
-            return self.XY, 0.0
-        if key not in self._planes:
-            try:
-                wp = self.cd.WorkPlanes.AddByPlaneAndOffset(self.XY, key)
-            except Exception:
-                self.unbound.append(f"work plane z = {key}: offset not parametric")
-                if abs(z) < 1e-9:                        # a zero offset may be refused: use XY itself
-                    self._planes[key] = self.XY
-                    return self.XY, 0.0
-                wp = self.cd.WorkPlanes.AddByPlaneAndOffset(self.XY, z / 10)
-            wp.Visible = False
-            _name(wp, f"z = {key}")
-            self._planes[key] = wp
-        return self._planes[key], z
+        return self._offset_plane(self.XY, "z", expr, z, "Z"), z
+
+    def plane_y(self, expr) -> tuple[object, float]:
+        y = self.x(expr)
+        return self._offset_plane(self.XZ, "y", expr, y, "Y"), y
+
+    def plane_x(self, expr) -> tuple[object, float]:
+        xv = self.x(expr)
+        return self._offset_plane(self.YZ, "x", expr, xv, "X"), xv
 
     def sketch_z(self, z_expr, name: str) -> Sk:
         plane, z = self.plane_z(z_expr)
-        return Sk(self, plane, name, z)
+        return Sk(self, plane, name, "xy", z)
+
+    def sketch_y(self, y_expr, name: str) -> Sk:
+        """Sketch on a plane parallel to XZ at y = expr; coordinates (x, z)."""
+        plane, y = self.plane_y(y_expr)
+        return Sk(self, plane, name, "xz", y)
+
+    def sketch_x(self, x_expr, name: str) -> Sk:
+        """Sketch on a plane parallel to YZ at x = expr; coordinates (y, z)."""
+        plane, xv = self.plane_x(x_expr)
+        return Sk(self, plane, name, "yz", xv)
 
     def sketch_xz(self, name: str) -> Sk:
-        return Sk(self, self.XZ, name, None)
+        return Sk(self, self.XZ, name, "xz", 0.0)
 
-    def axis_z_at(self, x_expr, name: str):
-        """Work axis parallel to Z through (x, 0) - the axis of a port at x = expr."""
-        xv = self.x(x_expr)
-        try:
-            wp = self.cd.WorkPlanes.AddByPlaneAndOffset(self.YZ, str(x_expr))
-        except Exception:
-            wp = self.cd.WorkPlanes.AddByPlaneAndOffset(self.YZ, xv / 10)
-            self.unbound.append(f"axis plane x = {x_expr}: offset not parametric")
-        wp.Visible = False
-        _name(wp, f"x = {x_expr}")
-        ax = self.cd.WorkAxes.AddByTwoPlanes(wp, self.XZ, False)
+    def axis_z_at(self, x_expr, name: str, y_expr="0"):
+        """Work axis parallel to Z through (x, y)."""
+        px, _ = self.plane_x(x_expr)
+        py, _ = self.plane_y(y_expr)
+        ax = self.cd.WorkAxes.AddByTwoPlanes(px, py, False)
+        ax.Visible = False
+        _name(ax, name)
+        return ax
+
+    def axis_y_at(self, x_expr, z_expr, name: str):
+        """Work axis parallel to Y through (x, z)."""
+        px, _ = self.plane_x(x_expr)
+        pz, _ = self.plane_z(z_expr)
+        ax = self.cd.WorkAxes.AddByTwoPlanes(px, pz, False)
+        ax.Visible = False
+        _name(ax, name)
+        return ax
+
+    def axis_x_at(self, y_expr, z_expr, name: str):
+        """Work axis parallel to X through (y, z)."""
+        py, _ = self.plane_y(y_expr)
+        pz, _ = self.plane_z(z_expr)
+        ax = self.cd.WorkAxes.AddByTwoPlanes(py, pz, False)
         ax.Visible = False
         _name(ax, name)
         return ax
@@ -224,19 +294,17 @@ class NativePart:
         return c
 
     def rect(self, s: Sk, u0, v0, u1, v1, tag: str, *, wu=None, wv=None, sym_u=False, sym_v=False,
-             pin_u0=None, pin_u1=None):
+             pin_u0=None, pin_u1=None, pin_v0=None, pin_v1=None):
         """Axis-aligned rectangle between (u0, v0) and (u1, v1) (expressions). Size along the
         first/second axis bound to `wu`/`wv`; `sym_u` centres it on the second axis (symmetric
-        in u), `sym_v` on the X axis; `pin_u0`/`pin_u1` bind the distance of its low/high
-        u-edge from the origin."""
+        in u), `sym_v` on the X axis; `pin_u0`/`pin_u1` (`pin_v0`/`pin_v1`) bind the distance of
+        its low/high u-edge (v-edge) from the origin."""
         a, b, c, d = self.x(u0), self.x(v0), self.x(u1), self.x(v1)
         sk = s.sk
         lines = sk.SketchLines.AddAsTwoPointRectangle(s.pt(a, b), s.pt(c, d))
         L = [lines.Item(i) for i in range(1, 5)]
 
-        def m(sp):                       # model (u, v) of a sketch point
-            q = sk.SketchToModelSpace(sp.Geometry)
-            return (q.X * 10, q.Y * 10 if s.z is not None else q.Z * 10)
+        m = s.model_uv                   # model (u, v) of a sketch point
 
         along_u = [ln for ln in L if abs(m(ln.StartSketchPoint)[0] - m(ln.EndSketchPoint)[0]) > 1e-4]
         along_v = [ln for ln in L if ln not in along_u]
@@ -260,7 +328,12 @@ class NativePart:
             if pin is not None:
                 uv = self.x(pin)
                 self.drive(lambda: dc.AddTwoPointDistance(s.o, line.StartSketchPoint, s.dim_x, s.tp(uv / 2, max(b, d) + 2, 0, 0)),
-                           str(pin) if uv > 0 else _neg(str(pin)), f"{tag} edge position")
+                           str(pin) if uv > 0 else _neg(str(pin)), f"{tag} u-edge position")
+        for pin, line in ((pin_v0, u_lo), (pin_v1, u_hi)):
+            if pin is not None:
+                vv = self.x(pin)
+                self.drive(lambda: dc.AddTwoPointDistance(s.o, line.StartSketchPoint, s.dim_v, s.tp(max(a, c) + 2, vv / 2, 0, 0)),
+                           str(pin) if vv > 0 else _neg(str(pin)), f"{tag} v-edge position")
         return L
 
     def polygon(self, s: Sk, pts, tag: str):
@@ -287,6 +360,26 @@ class NativePart:
             self.x(taper)
             f = self.feats.ExtrudeFeatures.AddByDistanceExtent(prof, str(dist), direction, op, str(taper))
         _name(f, name)
+        return f
+
+    def extrude_toward(self, s: Sk, dist, op: int, name: str, axis: str, positive: bool):
+        """Extrude to the `positive` (or negative) side of the sketch plane along model `axis`.
+        Inventor's positive extent direction is +X/+Y/+Z for sketches on offset work planes
+        (measured 2026-10-06); for a sketch on a base plane the result is verified and redone."""
+        f = self.extrude(s, dist, kPos if positive else kNeg, op, name)
+        rb = f.RangeBox
+        lo, hi = getattr(rb.MinPoint, axis.upper()) * 10, getattr(rb.MaxPoint, axis.upper()) * 10
+        if ((lo + hi) / 2 > s.at) != positive:
+            f.Delete()
+            s2 = Sk(self, s.sk.PlanarEntity, s.name + " (redo)", s.kind, s.at)
+            for c in s.sk.SketchCircles:
+                cen = s.model_uv(c.CenterSketchPoint)
+                s2.sk.SketchCircles.AddByCenterRadius(s2.pt(*cen), c.Radius)
+            for ln in s.sk.SketchLines:
+                a, b = s.model_uv(ln.StartSketchPoint), s.model_uv(ln.EndSketchPoint)
+                s2.sk.SketchLines.AddByTwoPoints(s2.pt(*a), s2.pt(*b))
+            self.unbound.append(f"{name}: redone on the other side (geometry only)")
+            f = self.extrude(s2, dist, kNeg if positive else kPos, op, name)
         return f
 
     def extrude_through(self, s: Sk, direction: int, name: str):
@@ -364,16 +457,44 @@ class NativePart:
                 ec.Add(e)
         return ec
 
-    def vertical_edges(self, min_len: float):
+    def vertical_edges(self, min_len: float, where=None):
+        """Straight edges parallel to Z of at least `min_len`; `where(x_mm, y_mm)` filters them."""
+        return self.edges_parallel("z", min_len, (lambda x, y, z: where(x, y)) if where else None)
+
+    def edges_parallel(self, axis: str, min_len: float, where=None):
+        """Straight edges parallel to model `axis` ('x'|'y'|'z') of at least `min_len`;
+        `where(x_mm, y_mm, z_mm)` (of the edge's start) filters them."""
+        i = "xyz".index(axis)
         ec = self.app.TransientObjects.CreateEdgeCollection()
         for e in self.body().Edges:
             try:
                 a, b = e.StartVertex.Point, e.StopVertex.Point
             except Exception:
                 continue
-            dx, dy, dz = (b.X - a.X) * 10, (b.Y - a.Y) * 10, (b.Z - a.Z) * 10
-            if abs(dz) >= min_len and abs(dx) < 1e-4 and abs(dy) < 1e-4:
+            d = [(b.X - a.X) * 10, (b.Y - a.Y) * 10, (b.Z - a.Z) * 10]
+            if abs(d[i]) >= min_len and all(abs(d[j]) < 1e-4 for j in range(3) if j != i):
+                if where is None or where(a.X * 10, a.Y * 10, a.Z * 10):
+                    ec.Add(e)
+        return ec
+
+    def circle_edges_at(self, cx: float, cy: float, cz: float, r: float, tol: float = 0.02):
+        """Circular edges of radius r centred at (cx, cy, cz), any axis."""
+        ec = self.app.TransientObjects.CreateEdgeCollection()
+        for e in self.body().Edges:
+            try:
+                g = e.Geometry
+                rr, c = g.Radius, g.Center
+            except Exception:
+                continue
+            if abs(rr * 10 - r) < tol and abs(c.X * 10 - cx) < tol and abs(c.Y * 10 - cy) < tol and abs(c.Z * 10 - cz) < tol:
                 ec.Add(e)
+        return ec
+
+    def edges_union(self, *collections):
+        ec = self.app.TransientObjects.CreateEdgeCollection()
+        for c in collections:
+            for i in range(1, c.Count + 1):
+                ec.Add(c.Item(i))
         return ec
 
     def feature_z_range(self, f) -> tuple[float, float]:

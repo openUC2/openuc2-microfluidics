@@ -3,20 +3,29 @@
 A 75 × 25 mm chip for transmission microscopy of a piece of leaf that is perfused by a pump:
 water, H₂O₂ or another solution goes in through a female **luer lock**, flows through the
 chamber past the leaf, and leaves into an open **reservoir** (variant A) or a second **luer**
-(variant B). The leaf chamber is closed with a **3D-printed screw plug** that carries an O-ring and
-a glass window, so the sample sits between two coverslips with a flat optical path on both sides.
+(variant B, the default). The leaf chamber is closed with a **3D-printed screw plug** that carries an
+O-ring. The plug is solid by default (`plug_window = 0`); with `plug_window = 1` it gets a glued
+glass window and a clear aperture, so the sample sits between two coverslips.
 
-![exploded](docs/exploded_A.png)
+![exploded](docs/exploded_B.png)
 
-![section](docs/section_A.png)
+![section](docs/section_B.png)
 
 | variant | outlet | chip | assembly |
 |---|---|---|---|
+| B (default) | luer lock (tubing) | `PRT - 9301 - MFLEAFCHIP - V04 - B` | `ASS - 9300 - MFLEAF - V04 - B` |
 | A | open reservoir, 1.5 mL | `PRT - 9301 - MFLEAFCHIP - V04 - A` | `ASS - 9300 - MFLEAF - V04 - A` |
-| B | luer lock (tubing) | `PRT - 9301 - MFLEAFCHIP - V04 - B` | `ASS - 9300 - MFLEAF - V04 - B` |
 
 Both use the same plug `PRT - 9302 - MFLEAFPLUG - V04`. The numbers are provisional (9xxx is
 unused in openUC2-CAD-new); renumber them in `leaf_chamber.py` (`NUMBERS`).
+
+
+## Create
+
+```
+C:\Users\benir\miniforge3\envs\pyinventor\python.exe build_leaf_chamber.py --variant B --set ch_w=3 --set chamber_h=2.0 --set th_clear=.3 --set stub_clear=.3
+C:\Users\benir\miniforge3\envs\pyinventor\python.exe build_leaf_chamber.py --set ch_w=3 --set ch_h=1.0 --set chamber_h=1.5
+```
 
 ## How it works
 
@@ -26,17 +35,19 @@ unused in openUC2-CAD-new); renumber them in `leaf_chamber.py` (`NUMBERS`).
   out easily; closed SLA channels below about 0.5 mm tend to clog with uncured resin. To get closed
   tunnels instead, set `ch_floor > 0` (see "Variants of the idea").
 - **Chamber.** A Ø14.3 well through the slab. The leaf lies on the coverslip, and the chamber is
-  `chamber_h` = 0.8 mm high (about 128 µL). The channels enter the well at floor level.
-- **Plug.** The plug is M20 × 1.5 with modelled threads, right-handed, and 0.15 mm radial printing
-  clearance. Its stub reaches into the well:
-  - The **window** is a Ø12 #1.5 round coverslip glued into the stub, flush with its bottom. It is
-    the chamber ceiling: flat, no air in the light path. A black printed cap alone would block the
-    transmitted light.
+  `chamber_h` high (0.8 mm by default, about 128 µL). The channels enter the well at floor level,
+  so a channel can be at most as deep as the chamber (`ch_floor + ch_h <= chamber_h`).
+- **Plug.** The plug is M20 × 1.5 with modelled threads, right-handed. The printing clearance is
+  split: `th_clear` (chip bore) and `plug_th_clear` (plug), so the fit can be loosened by reprinting
+  only the plug. Its stub reaches into the well:
+  - The stub bottom is the **chamber ceiling**. A solid black plug blocks the transmitted light:
+    print it in Clear resin, or set `plug_window = 1` for a Ø12 #1.5 round coverslip glued into the
+    stub plus a Ø10 aperture.
   - The stub carries the CAD-new **O-ring ISO 3601-1 12 × 1.5**. It forms a static radial seal
     against the well bore: 23 % squeeze, 73 % groove fill.
   - The plug **bottoms out on a stop face** (`ledge_z`). The chamber height therefore does not
     depend on how hard you screw, and the seal does not depend on torque.
-  - The head has 16 grip flutes and a Ø10 clear aperture for the illumination.
+  - The head has 16 grip flutes.
 - **Ports.** Female luer lock to ISO 80369-7 / ISO 594-2:
   - 6 % taper bore, Ø4.29 at the face, 8 mm deep
   - Ø6.73 hub, two right-hand lugs to Ø7.83 (2-start, 5 mm lead)
@@ -47,7 +58,8 @@ unused in openUC2-CAD-new); renumber them in `leaf_chamber.py` (`NUMBERS`).
 Frame (all parts share it, so the assembly places everything at identity): origin at the chamber
 centre on the glue plane, so z = 0 is the top of the bottom coverslip (the leaf plane). The inlet
 is at +X, the outlet at −X, and Z points away from the objective (inverted microscope). Overall
-height above the coverslip is 12.3 mm at the plug and 12 mm at the luer.
+height above the coverslip is `plug_top` (12.3 mm by default, 13 mm with `chamber_h = 1.5`) and
+12 mm at the luer.
 
 ## Build
 
@@ -56,8 +68,9 @@ Needs a running Inventor and the miniforge `pyinventor` env (pywin32):
 ```bash
 cd chips\leaf_chamber
 python leaf_chamber.py                          # parameter table + design checks only (no Inventor)
-C:\Users\benir\miniforge3\envs\pyinventor\python.exe build_leaf_chamber.py           # A + B, plug, glass, assemblies
-C:\Users\benir\miniforge3\envs\pyinventor\python.exe build_leaf_chamber.py --variant B --set ch_w=0.8 --set chamber_h=1.0
+C:\Users\benir\miniforge3\envs\pyinventor\python.exe build_leaf_chamber.py           # variant B (default)
+C:\Users\benir\miniforge3\envs\pyinventor\python.exe build_leaf_chamber.py --set ch_w=3 --set ch_h=1.0 --set chamber_h=1.5
+C:\Users\benir\miniforge3\envs\pyinventor\python.exe build_leaf_chamber.py --variant all   # A and B
 C:\Users\benir\miniforge3\envs\pyinventor\python.exe build_leaf_chamber.py --params my_chip.json --show
 ```
 
@@ -97,14 +110,18 @@ The knobs you are most likely to turn:
 
 | parameter | default | |
 |---|---|---|
-| `ch_w`, `ch_h` | 1.0, 0.5 mm | channel cross-section |
+| `ch_w`, `ch_h` | 1.0, 0.5 mm | channel width and depth; `ch_h` at most `chamber_h` |
 | `ch_floor` | 0 | 0 = open groove under the coverslip; > 0 = closed tunnel |
-| `via_d` | 1.0 mm | vertical via into the ports |
+| `via_d` | 1.0 mm | vertical via into the ports; up to about 2.5 (taper bottom Ø3.8) for wide channels |
 | `well_d`, `chamber_h` | 14.3, 0.8 mm | leaf space; the O-ring seals on `well_d` |
-| `in_x`, `out_x` | 27, 25 (A) / 27 (B) mm | port positions from the chamber centre |
+| `oring_id`, `oring_cs` | 12, 1.5 mm | O-ring size; the groove follows `groove_root_d` (about `well_d - 1.55 * oring_cs`) and `groove_w` (about 1.4 × `oring_cs`) |
+| `plug_th_clear` | 0.25 mm | plug thread clearance, radial per side; raise it if the plug is tight |
+| `th_clear` | 0.15 mm | chip bore thread clearance, radial per side |
+| `stub_clear` | 0.25 mm | stub-to-well clearance, radial per side (plug only) |
+| `th_d`, `th_p` | 20, 1.5 mm | thread size; a coarser `th_p` allows more clearance |
+| `plug_window` | 0 | 1 = glued window `win_d` (12) with aperture `win_ap` (10) |
+| `in_x`, `out_x` | 27, 27 (B) / 25 (A) mm | port positions from the chamber centre |
 | `cs_l`, `cs_w`, `cs_t`, `cs_recess` | 60, 24, 0.17, 0.25 mm | bottom coverslip and its glue band |
-| `th_d`, `th_p`, `th_clear` | 20, 1.5, 0.15 mm | plug thread; raise `th_clear` if the print is tight |
-| `win_d`, `win_ap` | 12, 10 mm | window glass and clear aperture |
 | `res_d`, `res_top` | 16, 9 mm | reservoir (A) |
 | `luer_open_d`, `luer_lug_rev` | 4.29 mm, 0.5 | luer fit and lug length |
 
@@ -136,8 +153,9 @@ uv run --with cadquery --with trimesh --with rtree --with scipy --with shapely -
   closes 0.5 mm grooves.
 - **Plug:** put the head toward the platform, thread axis vertical. The window recess and O-ring
   groove stay support-free.
-- **Fit:** if the plug runs tight, rebuild with `--set th_clear=0.2`; if the stub sticks, use
-  `stub_clear`. Wash the open channels well, then post-cure fully. Uncured monomer is not good for
+- **Fit:** if the plug runs tight, raise `plug_th_clear` (thread) or `stub_clear` (stub in the
+  well) and reprint only the plug. If it gets tight only when the O-ring enters the well, it is the
+  O-ring squeeze: grease it, or lower the squeeze with a smaller `groove_root_d`. Wash the open channels well, then post-cure fully. Uncured monomer is not good for
   living tissue.
 
 ## Assemble and use
@@ -145,7 +163,7 @@ uv run --with cadquery --with trimesh --with rtree --with scipy --with shapely -
 1. Glue the 24 × 60 coverslip into the band. Keep the adhesive out of the channels: thin UV glue
    (for example NOA 81) applied away from the grooves, or a double-sided transfer tape with the
    channel cut out. Cure, then check by flushing.
-2. Glue the Ø12 round coverslip into the stub recess from below.
+2. With `plug_window = 1` only: glue the Ø12 round coverslip into the stub recess from below.
 3. Fit the O-ring on the stub. A trace of silicone grease or water makes screwing smooth.
 4. Put the leaf piece (up to about Ø14, at most about 0.6 mm thick for `chamber_h` = 0.8) on the
    bottom coverslip in the well.
@@ -156,7 +174,7 @@ uv run --with cadquery --with trimesh --with rtree --with scipy --with shapely -
 Bill of materials per chip:
 - printed chip and plug (Black resin);
 - coverslip 24 × 60 mm #1.5;
-- round coverslip Ø12 mm #1.5;
+- round coverslip Ø12 mm #1.5 (only with `plug_window = 1`);
 - O-ring 12 × 1.5 (ISO 3601-1). CAD-new has it in NBR70; for **H₂O₂** use EPDM or FKM in the same
   size, because NBR is attacked by oxidisers;
 - adhesive or transfer tape.

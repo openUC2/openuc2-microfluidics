@@ -7,9 +7,9 @@ parameter, and the script also exports STEP and print-ready STL files.
 
 | chip | folder | |
 |---|---|---|
-| Leaf chamber | [`chips/leaf_chamber`](chips/leaf_chamber/README.md) | slide-format perfusion chamber for a leaf sample: screw plug with window and O-ring, luer-lock inlet, reservoir (A) or luer (B) outlet, glued bottom coverslip |
+| Leaf chamber | [`chips/leaf_chamber`](chips/leaf_chamber/README.md) | slide-format perfusion chamber for a leaf sample: screw plug with O-ring (optional window), luer-lock inlet, luer (B, default) or reservoir (A) outlet, glued bottom coverslip |
 
-![leaf chamber](chips/leaf_chamber/docs/exploded_A.png)
+![leaf chamber](chips/leaf_chamber/docs/exploded_B.png)
 
 ## Layout
 

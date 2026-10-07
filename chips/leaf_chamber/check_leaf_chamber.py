@@ -114,7 +114,10 @@ def check(variant: str, render: bool = True) -> list[tuple[bool, str]]:
         ok(far <= p["cs_l"] / 2 - 2 and p["ch_w"] / 2 < p["cs_w"] / 2 - 3, "open channels and vias lie on the bottom coverslip")
     # closed state: chamber between coverslip and window, O-ring on the bore
     plug_bottom = inside(plug, [(0, 0, p["chamber_h"] + 0.05), (p["stub_d"] / 2 - 0.3, 0, p["chamber_h"] + 0.05)])
-    ok(not plug_bottom[0] and plug_bottom[1], "window recess open in the middle, stub wall around it")
+    if p.get("plug_window", 1) > 0.5:
+        ok(not plug_bottom[0] and plug_bottom[1], "window recess open in the middle, stub wall around it")
+    else:
+        ok(plug_bottom.all(), "solid plug: stub closed over the chamber")
     ok(not inside(chip, [(0, 0, p["chamber_h"] / 2), (p["well_d"] / 2 - 0.2, 0, p["chamber_h"] / 2)]).any(), "chamber open")
 
     if render:
@@ -136,7 +139,9 @@ def draw(variant, p, outlet, chip, plug):
     oring = trimesh.creation.torus(rc, p["oring_cs"] / 2, major_sections=96, minor_sections=24)
     oring.apply_translation((0, 0, p["groove_z0"] + p["groove_w"] / 2))
     parts = [(chip, "#2b2b2b", "chip (black resin)"), (plug, "#5a5a6e", "plug"), (cs, "#7fc8e8", "coverslip"),
-             (win, "#7fc8e8", "window"), (oring, "#c0392b", "O-ring 12 x 1.5")]
+             (win, "#7fc8e8", "window"), (oring, "#c0392b", f"O-ring {p['oring_id']:g} x {p['oring_cs']:g}")]
+    if p.get("plug_window", 1) < 0.5:
+        parts = [x for x in parts if x[2] != "window"]
 
     def section(ax, origin, normal, to2d):
         for m, col, lab in parts:
@@ -165,7 +170,8 @@ def draw(variant, p, outlet, chip, plug):
     section(axs[1], (0, 0, 0), (0, 1, 0), to_xz)
     axs[1].set_xlim(-12.5, 12.5)
     axs[1].set_ylim(-0.6, p["plug_top"] + 0.4)
-    axs[1].set_title(f"detail: chamber {p['well_d']:g} x {p['chamber_h']:g} mm, window D{p['win_d']:g} in the stub, "
+    plug_txt = f"window D{p['win_d']:g} in the stub" if p.get("plug_window", 1) > 0.5 else "solid plug"
+    axs[1].set_title(f"detail: chamber {p['well_d']:g} x {p['chamber_h']:g} mm, channel {p['ch_w']:g} x {p['ch_h']:g} mm, {plug_txt}, "
                      f"O-ring on the stub, M{p['th_d']:g}x{p['th_p']:g} thread, stop face at z = {p['ledge_z']:g}", fontsize=9)
     for ax in axs:
         ax.grid(alpha=0.25)
@@ -200,7 +206,7 @@ def draw(variant, p, outlet, chip, plug):
     plt.close(fig)
     # exploded view in assembly order: coverslip, chip, window, O-ring, plug
     from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-    lift = {"coverslip": -8.0, "window": 12.0, "O-ring 12 x 1.5": 16.0, "plug": 20.0}
+    lift = {"coverslip": -8.0, "window": 12.0, f"O-ring {p['oring_id']:g} x {p['oring_cs']:g}": 16.0, "plug": 20.0}
     light = np.array([-0.4, -0.7, 0.9])
     light /= np.linalg.norm(light)
     fig = plt.figure(figsize=(11, 7.5))
@@ -220,7 +226,7 @@ def draw(variant, p, outlet, chip, plug):
     ax.set_box_aspect((76, 40, 44))
     ax.view_init(elev=24, azim=-58)
     ax.set_axis_off()
-    ax.set_title(f"Leaf chamber {variant} - exploded: coverslip, chip, window, O-ring, plug", fontsize=10)
+    ax.set_title(f"Leaf chamber {variant} - exploded: " + ", ".join(lab.split(" (")[0] for _, _, lab in parts), fontsize=10)
     fig.tight_layout()
     fig.savefig(DOCS / f"exploded_{variant}.png", dpi=130)
     plt.close(fig)
@@ -228,7 +234,7 @@ def draw(variant, p, outlet, chip, plug):
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--variant", choices=sorted(VARIANTS) + ["all"], default="all")
+    ap.add_argument("--variant", choices=sorted(VARIANTS) + ["all"], default="B")
     ap.add_argument("--no-render", action="store_true")
     a = ap.parse_args()
     variants = sorted(VARIANTS) if a.variant == "all" else [a.variant]
